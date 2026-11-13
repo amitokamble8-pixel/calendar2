@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Application Deadlines Calendar</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>" />
+  <style>
+:root {
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --text: #1d2433;
+  --muted: #6b7385;
+  --border: #e3e6ee;
+  --accent: #3b5bdb;
+  --accent-soft: #e7ecff;
+  --danger: #d6336c;
+  --today: #fff4d6;
+  --radius: 10px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+button, input, select, textarea { font: inherit; }
+
+button {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:hover { border-color: #c5cad8; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--danger); }
+input, select, textarea {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #fff;
+}
+
+/* Top bar */
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--border);
+}
+.brand h1 { margin: 0; font-size: 1.25rem; }
+.subtitle { color: var(--muted); font-size: .85rem; }
+.actions { display: flex; gap: 8px; align-items: center; }
+.menu { position: relative; }
+.menu-list {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.08); display: flex; flex-direction: column; min-width: 220px; padding: 4px;
+}
+.menu-list button { border: none; text-align: left; border-radius: 6px; }
+.menu-list button:hover { background: var(--bg); }
+
+/* Toolbar */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center;
+  padding: 12px 24px;
+}
+.nav { display: flex; align-items: center; gap: 6px; }
+.nav h2 { margin: 0 0 0 10px; font-size: 1.2rem; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#searchInput { min-width: 240px; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: none; border-radius: 0; }
+.seg button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* Layout */
+.layout { display: grid; grid-template-columns: 1fr 300px; gap: 16px; padding: 0 24px 24px; }
+@media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+
+/* Month grid */
+.calendar {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+}
+.weekdays, .grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.weekdays div {
+  padding: 8px; font-size: .8rem; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; border-bottom: 1px solid var(--border);
+}
+.cell {
+  min-height: 112px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  padding: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+}
+.cell:nth-child(7n) { border-right: none; }
+.cell:hover { background: #fafbff; }
+.cell.other { background: #fbfbfd; color: #b0b5c3; }
+.cell.today { background: var(--today); }
+.cell .num { font-size: .85rem; font-weight: 600; }
+.cell.today .num {
+  background: var(--accent); color: #fff; border-radius: 999px; width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.chip {
+  font-size: .75rem; padding: 2px 6px; border-radius: 5px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; border-left: 3px solid; cursor: pointer;
+}
+.chip.done { opacity: .45; text-decoration: line-through; }
+.chip.high::before { content: "● "; color: var(--danger); }
+.more { font-size: .75rem; color: var(--muted); }
+
+/* Agenda */
+.agenda {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 16px 16px;
+}
+.agenda h4 {
+  margin: 18px 0 6px; font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+}
+.agenda-item {
+  display: grid; grid-template-columns: 110px 1fr auto; gap: 12px; align-items: center;
+  padding: 10px; border-radius: 8px; border-left: 4px solid; margin-bottom: 6px; background: #fafbfe; cursor: pointer;
+}
+.agenda-item:hover { background: #f1f3fb; }
+.agenda-item.done { opacity: .5; }
+.agenda-item.done .t { text-decoration: line-through; }
+.agenda-item .d { font-weight: 600; font-size: .9rem; }
+.agenda-item .t { font-weight: 600; }
+.agenda-item .meta { font-size: .82rem; color: var(--muted); }
+.badge { font-size: .75rem; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: var(--muted); white-space: nowrap; }
+.badge.urgent { background: #ffe3ec; color: var(--danger); font-weight: 600; }
+.badge.past { background: #eee; }
+.empty { color: var(--muted); padding: 24px; text-align: center; }
+
+/* Sidebar */
+.sidebar {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 16px; align-self: start; position: sticky; top: 12px;
+}
+.sidebar h3 { font-size: .9rem; margin: 8px 0; }
+.upcoming, .legend, .day-list { list-style: none; margin: 0; padding: 0; }
+.upcoming li {
+  padding: 8px; border-radius: 8px; border-left: 3px solid; margin-bottom: 6px; background: #fafbfe; cursor: pointer;
+}
+.upcoming li .t { font-size: .88rem; font-weight: 600; }
+.upcoming li .meta { font-size: .78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+.legend li { display: flex; align-items: center; gap: 8px; font-size: .85rem; margin-bottom: 4px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+/* Dialogs */
+dialog {
+  border: none; border-radius: 14px; padding: 20px 22px; width: min(560px, 94vw);
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+dialog::backdrop { background: rgba(20,24,40,.35); }
+dialog h3 { margin-top: 0; }
+#editForm label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); margin-bottom: 10px; }
+#editForm label.check { flex-direction: row; }
+#editForm .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.dialog-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.spacer { flex: 1; }
+.day-list li {
+  border-left: 4px solid; padding: 8px 10px; background: #fafbfe; border-radius: 8px; margin-bottom: 8px; cursor: pointer;
+}
+.day-list .meta { font-size: .82rem; color: var(--muted); }
+.day-list a { font-size: .82rem; }
+
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #1d2433; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: .9rem; z-index: 50;
+}
+[hidden] { display: none !important; }
+
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Application Deadlines</h1>
+      <span class="subtitle" id="todayLabel"></span>
+    </div>
+    <div class="actions">
+      <button id="addBtn" class="primary">+ Add deadline</button>
+      <div class="menu">
+        <button id="menuBtn" aria-haspopup="true">Data ▾</button>
+        <div class="menu-list" id="menuList" hidden>
+          <button id="importCsvBtn">Import CSV…</button>
+          <button id="exportCsvBtn">Export CSV</button>
+          <button id="exportIcsBtn">Export to calendar (.ics)</button>
+          <button id="resetBtn" class="danger">Reset to default data</button>
+        </div>
+      </div>
+      <input type="file" id="csvInput" accept=".csv,text/csv" hidden />
+    </div>
+  </header>
+
+  <section class="toolbar">
+    <div class="nav">
+      <button id="prevBtn" aria-label="Previous">‹</button>
+      <button id="todayBtn">Today</button>
+      <button id="nextBtn" aria-label="Next">›</button>
+      <h2 id="periodLabel"></h2>
+    </div>
+    <div class="filters">
+      <input type="search" id="searchInput" placeholder="Search university, title, notes…" />
+      <select id="countryFilter"><option value="">All countries</option></select>
+      <select id="typeFilter"><option value="">All types</option></select>
+      <label class="check"><input type="checkbox" id="hideDone" /> Hide completed</label>
+      <div class="seg" role="tablist">
+        <button data-view="month" class="active">Month</button>
+        <button data-view="agenda">List</button>
+      </div>
+    </div>
+  </section>
+
+  <main class="layout">
+    <section id="calendarView" class="calendar"></section>
+    <section id="agendaView" class="agenda" hidden></section>
+
+    <aside class="sidebar">
+      <h3>Coming up</h3>
+      <ul id="upcomingList" class="upcoming"></ul>
+      <h3>Legend</h3>
+      <ul id="legend" class="legend"></ul>
+    </aside>
+  </main>
+
+  <!-- Add / edit dialog -->
+  <dialog id="editDialog">
+    <form id="editForm" method="dialog">
+      <h3 id="dialogTitle">Add deadline</h3>
+      <label>Title* <input name="title" required placeholder="e.g. UCAS application" /></label>
+      <label>University / organisation <input name="institution" placeholder="e.g. University of Edinburgh" /></label>
+      <div class="row">
+        <label>Date* <input type="date" name="date" required /></label>
+        <label>Time <input type="time" name="time" /></label>
+        <label>Time zone <input name="timezone" placeholder="e.g. GMT, ET" /></label>
+      </div>
+      <div class="row">
+        <label>Country <input name="country" list="countryList" placeholder="e.g. UK" /></label>
+        <label>Type
+          <select name="type">
+            <option>Application</option>
+            <option>Early Decision</option>
+            <option>Early Action</option>
+            <option>Regular Decision</option>
+            <option>Admissions test</option>
+            <option>Scholarship</option>
+            <option>Financial aid</option>
+            <option>Interview</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label>Priority
+          <select name="priority">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
+      </div>
+      <label>Link <input type="url" name="link" placeholder="https://…" /></label>
+      <label>Notes <textarea name="notes" rows="3"></textarea></label>
+      <label class="check"><input type="checkbox" name="done" /> Completed</label>
+      <datalist id="countryList"></datalist>
+      <div class="dialog-actions">
+        <button type="button" id="deleteBtn" class="danger" hidden>Delete</button>
+        <span class="spacer"></span>
+        <button type="button" id="cancelBtn">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Day detail dialog -->
+  <dialog id="dayDialog">
+    <h3 id="dayTitle"></h3>
+    <ul id="dayList" class="day-list"></ul>
+    <div class="dialog-actions">
+      <button type="button" id="dayAddBtn" class="primary">+ Add on this day</button>
+      <span class="spacer"></span>
+      <button type="button" id="dayCloseBtn">Close</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+  <script>
+/* Application Deadlines Calendar — no build step, no dependencies. */
+(() => {
+  const STORAGE_KEY = "deadline-calendar:v1";
+  const TYPE_COLORS = {
+    "Application": "#3b5bdb",
+    "Early Decision": "#d6336c",
+    "Early Action": "#f76707",
+    "Regular Decision": "#1c7ed6",
+    "Admissions test": "#7048e8",
+    "Scholarship": "#2f9e44",
+    "Financial aid": "#0c8599",
+    "Interview": "#e8590c",
+    "Other": "#868e96",
+  };
+  const CSV_FIELDS = ["title", "institution", "country", "type", "date", "time", "timezone", "priority", "link", "notes", "done"];
+
+  const state = {
+    deadlines: [],
+    view: "month",
+    cursor: startOfMonth(new Date()),
+    filters: { search: "", country: "", type: "", hideDone: false },
+    editingId: null,
+    dayDialogDate: null,
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Date helpers (all dates handled as local YYYY-MM-DD) ----------
+  function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function toKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  function fromKey(k) { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); }
+  function todayKey() { return toKey(new Date()); }
+  function daysUntil(key) {
+    const t = fromKey(todayKey());
+    return Math.round((fromKey(key) - t) / 86400000);
+  }
+  function fmtDate(key, opts = { weekday: "short", day: "numeric", month: "short", year: "numeric" }) {
+    return fromKey(key).toLocaleDateString("en-GB", opts);
+  }
+  function countdownLabel(key) {
+    const n = daysUntil(key);
+    if (n === 0) return { text: "Today", cls: "urgent" };
+    if (n === 1) return { text: "Tomorrow", cls: "urgent" };
+    if (n < 0) return { text: `${-n}d ago`, cls: "past" };
+    return { text: `in ${n}d`, cls: n <= 7 ? "urgent" : "" };
+  }
+
+  // ---------- Storage ----------
+  function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+  function normalise(d) {
+    return {
+      id: d.id || uid(),
+      title: String(d.title || "").trim(),
+      institution: String(d.institution || "").trim(),
+      country: String(d.country || "").trim(),
+      type: TYPE_COLORS[d.type] ? d.type : (d.type ? String(d.type).trim() : "Other"),
+      date: String(d.date || "").trim(),
+      time: String(d.time || "").trim(),
+      timezone: String(d.timezone || "").trim(),
+      priority: ["high", "low", "normal"].includes(String(d.priority).toLowerCase()) ? String(d.priority).toLowerCase() : "normal",
+      link: String(d.link || "").trim(),
+      notes: String(d.notes || "").trim(),
+      done: d.done === true || String(d.done).toLowerCase() === "true" || d.done === "1" || String(d.done).toLowerCase() === "yes",
+    };
+  }
+  function isValid(d) { return d.title && /^\d{4}-\d{2}-\d{2}$/.test(d.date) && !isNaN(fromKey(d.date)); }
+
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.deadlines)); } catch (_) { /* storage unavailable */ }
+  }
+  const EMBEDDED_DEFAULTS = [{"title": "Early Decision II application", "institution": "Sample University A", "country": "USA", "type": "Early Decision", "date": "2027-01-01", "time": "23:59", "timezone": "ET", "priority": "high", "link": "", "notes": "SAMPLE ENTRY \u2014 replace with real data (Data \u25b8 Import CSV, or edit deadlines.json)."}, {"title": "Regular Decision application", "institution": "Sample College B", "country": "USA", "type": "Regular Decision", "date": "2027-01-15", "time": "23:59", "timezone": "ET", "priority": "normal", "link": "", "notes": "SAMPLE ENTRY"}, {"title": "CSS Profile / financial aid forms", "institution": "Sample College B", "country": "USA", "type": "Financial aid", "date": "2027-02-01", "priority": "normal", "notes": "SAMPLE ENTRY"}, {"title": "UCAS application", "institution": "Sample UK University", "country": "UK", "type": "Application", "date": "2027-01-14", "time": "18:00", "timezone": "GMT", "priority": "high", "notes": "SAMPLE ENTRY \u2014 check the official UCAS date for the cycle."}, {"title": "Entrance scholarship application", "institution": "Sample University C", "country": "Canada", "type": "Scholarship", "date": "2026-12-01", "priority": "normal", "notes": "SAMPLE ENTRY"}, {"title": "Admissions interview", "institution": "Sample University D", "country": "Netherlands", "type": "Interview", "date": "2026-11-26", "time": "10:00", "timezone": "CET", "priority": "normal", "notes": "SAMPLE ENTRY"}];
+  async function loadDefaults() {
+    let data = EMBEDDED_DEFAULTS;
+    try {
+      const res = await fetch("deadlines.json", { cache: "no-store" });
+      if (res.ok) data = await res.json();
+    } catch (_) { /* fall back to embedded data */ }
+    return data.map(normalise).filter(isValid);
+  }
+  async function load() {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (_) {}
+    if (Array.isArray(stored)) { state.deadlines = stored.map(normalise).filter(isValid); return; }
+    try { state.deadlines = await loadDefaults(); save(); }
+    catch (e) { state.deadlines = []; toast("No default data found — add deadlines or import a CSV."); }
+  }
+
+  // ---------- Filtering ----------
+  function colorFor(type) { return TYPE_COLORS[type] || TYPE_COLORS.Other; }
+  function filtered() {
+    const { search, country, type, hideDone } = state.filters;
+    const q = search.toLowerCase();
+    return state.deadlines.filter((d) => {
+      if (country && d.country !== country) return false;
+      if (type && d.type !== type) return false;
+      if (hideDone && d.done) return false;
+      if (q && ![d.title, d.institution, d.notes, d.country, d.type].join(" ").toLowerCase().includes(q)) return false;
+      return true;
+    }).sort((a, b) => (a.date + (a.time || "99")).localeCompare(b.date + (b.time || "99")));
+  }
+  function byDate(list) {
+    const map = {};
+    for (const d of list) (map[d.date] ||= []).push(d);
+    return map;
+  }
+
+  // ---------- Rendering ----------
+  function render() {
+    renderFilterOptions();
+    $("todayLabel").textContent = "Today: " + fmtDate(todayKey(), { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const list = filtered();
+    if (state.view === "month") {
+      $("calendarView").hidden = false; $("agendaView").hidden = true;
+      $("periodLabel").textContent = state.cursor.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+      renderMonth(list);
+    } else {
+      $("calendarView").hidden = true; $("agendaView").hidden = false;
+      $("periodLabel").textContent = "All deadlines";
+      renderAgenda(list);
+    }
+    renderUpcoming(list);
+    renderLegend();
+  }
+
+  function renderFilterOptions() {
+    const countries = [...new Set(state.deadlines.map((d) => d.country).filter(Boolean))].sort();
+    const types = [...new Set([...Object.keys(TYPE_COLORS), ...state.deadlines.map((d) => d.type)])];
+    fillSelect($("countryFilter"), countries, "All countries", state.filters.country);
+    fillSelect($("typeFilter"), types, "All types", state.filters.type);
+    $("countryList").innerHTML = countries.map((c) => `<option value="${esc(c)}">`).join("");
+  }
+  function fillSelect(sel, values, allLabel, current) {
+    sel.innerHTML = `<option value="">${allLabel}</option>` +
+      values.map((v) => `<option ${v === current ? "selected" : ""} value="${esc(v)}">${esc(v)}</option>`).join("");
+  }
+
+  function renderMonth(list) {
+    const map = byDate(list);
+    const first = state.cursor;
+    const offset = (first.getDay() + 6) % 7; // Monday-first
+    const start = new Date(first.getFullYear(), first.getMonth(), 1 - offset);
+    const weeks = Math.ceil((offset + new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()) / 7);
+    const tKey = todayKey();
+    let html = `<div class="weekdays">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d) => `<div>${d}</div>`).join("")}</div><div class="grid">`;
+    for (let i = 0; i < weeks * 7; i++) {
+      const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const key = toKey(day);
+      const items = map[key] || [];
+      const cls = ["cell", day.getMonth() !== first.getMonth() ? "other" : "", key === tKey ? "today" : ""].join(" ");
+      const shown = items.slice(0, 3).map((d) => chip(d)).join("");
+      const more = items.length > 3 ? `<span class="more">+${items.length - 3} more</span>` : "";
+      html += `<div class="${cls}" data-day="${key}"><span class="num">${day.getDate()}</span>${shown}${more}</div>`;
+    }
+    $("calendarView").innerHTML = html + "</div>";
+  }
+  function chip(d) {
+    const c = colorFor(d.type);
+    const label = (d.institution ? d.institution + " — " : "") + d.title;
+    return `<div class="chip ${d.done ? "done" : ""} ${d.priority === "high" ? "high" : ""}" data-id="${d.id}"
+      style="border-color:${c};background:${c}1a" title="${esc(label)}">${esc(label)}</div>`;
+  }
+
+  function renderAgenda(list) {
+    if (!list.length) { $("agendaView").innerHTML = `<div class="empty">No deadlines match your filters.</div>`; return; }
+    let html = "", lastMonth = "";
+    for (const d of list) {
+      const m = fmtDate(d.date, { month: "long", year: "numeric" });
+      if (m !== lastMonth) { html += `<h4>${m}</h4>`; lastMonth = m; }
+      const cd = countdownLabel(d.date);
+      html += `<div class="agenda-item ${d.done ? "done" : ""}" data-id="${d.id}" style="border-color:${colorFor(d.type)}">
+        <div class="d">${fmtDate(d.date, { weekday: "short", day: "numeric", month: "short" })}${d.time ? `<div class="meta">${esc(d.time)} ${esc(d.timezone)}</div>` : ""}</div>
+        <div><div class="t">${d.priority === "high" ? "⚑ " : ""}${esc(d.title)}</div>
+          <div class="meta">${[d.institution, d.country, d.type].filter(Boolean).map(esc).join(" · ")}</div></div>
+        <span class="badge ${d.done ? "" : cd.cls}">${d.done ? "Done" : cd.text}</span>
+      </div>`;
+    }
+    $("agendaView").innerHTML = html;
+  }
+
+  function renderUpcoming(list) {
+    const t = todayKey();
+    const up = list.filter((d) => d.date >= t && !d.done).slice(0, 8);
+    $("upcomingList").innerHTML = up.length ? up.map((d) => {
+      const cd = countdownLabel(d.date);
+      return `<li data-id="${d.id}" style="border-color:${colorFor(d.type)}">
+        <div class="t">${esc(d.institution ? d.institution + " — " : "")}${esc(d.title)}</div>
+        <div class="meta"><span>${fmtDate(d.date, { day: "numeric", month: "short", year: "numeric" })}</span><span class="badge ${cd.cls}">${cd.text}</span></div>
+      </li>`;
+    }).join("") : `<li class="empty" style="border:none">Nothing upcoming 🎉</li>`;
+  }
+
+  function renderLegend() {
+    const used = new Set(state.deadlines.map((d) => d.type));
+    $("legend").innerHTML = Object.entries(TYPE_COLORS).filter(([t]) => used.has(t))
+      .map(([t, c]) => `<li><span class="swatch" style="background:${c}"></span>${t}</li>`).join("") || `<li class="meta">—</li>`;
+  }
+
+  // ---------- Dialogs ----------
+  function openEdit(id = null, presetDate = null) {
+    state.editingId = id;
+    const f = $("editForm");
+    f.reset();
+    const d = id ? state.deadlines.find((x) => x.id === id) : null;
+    $("dialogTitle").textContent = d ? "Edit deadline" : "Add deadline";
+    $("deleteBtn").hidden = !d;
+    const src = d || { date: presetDate || todayKey(), type: "Application", priority: "normal" };
+    for (const k of ["title", "institution", "country", "type", "date", "time", "timezone", "priority", "link", "notes"]) {
+      if (f.elements[k]) f.elements[k].value = src[k] || "";
+    }
+    if (f.elements.type.value === "" ) f.elements.type.value = "Other";
+    f.elements.done.checked = !!src.done;
+    $("editDialog").showModal();
+  }
+
+  function openDay(key) {
+    state.dayDialogDate = key;
+    $("dayTitle").textContent = fmtDate(key, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const items = filtered().filter((d) => d.date === key);
+    $("dayList").innerHTML = items.length ? items.map((d) => `
+      <li data-id="${d.id}" style="border-color:${colorFor(d.type)}">
+        <strong>${esc(d.title)}</strong>${d.done ? " ✓" : ""}
+        <div class="meta">${[d.institution, d.country, d.type, d.time && `${d.time} ${d.timezone}`].filter(Boolean).map(esc).join(" · ")}</div>
+        ${d.notes ? `<div class="meta">${esc(d.notes)}</div>` : ""}
+        ${safeUrl(d.link) ? `<a href="${esc(d.link)}" target="_blank" rel="noopener">Open link ↗</a>` : ""}
+      </li>`).join("") : `<li class="empty" style="border:none">No deadlines on this day.</li>`;
+    $("dayDialog").showModal();
+  }
+
+  // ---------- CSV / ICS ----------
+  function parseCSV(text) {
+    const rows = []; let row = [], field = "", inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQ) {
+        if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; }
+        else field += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === ",") { row.push(field); field = ""; }
+      else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(field); rows.push(row); row = []; field = "";
+      } else field += ch;
+    }
+    if (field !== "" || row.length) { row.push(field); rows.push(row); }
+    return rows.filter((r) => r.some((c) => c.trim() !== ""));
+  }
+  // Accepts YYYY-MM-DD, DD/MM/YYYY (UK style) or anything Date can parse.
+  function normaliseDate(s) {
+    s = String(s || "").trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const uk = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+    if (uk) return `${uk[3]}-${uk[2].padStart(2, "0")}-${uk[1].padStart(2, "0")}`;
+    const d = new Date(s);
+    return isNaN(d) ? "" : toKey(d);
+  }
+  function importCSV(text) {
+    const rows = parseCSV(text.replace(/^﻿/, ""));
+    if (rows.length < 2) throw new Error("CSV needs a header row and at least one data row.");
+    const header = rows[0].map((h) => h.trim().toLowerCase());
+    const alias = { university: "institution", school: "institution", deadline: "date", category: "type", url: "link", completed: "done" };
+    const cols = header.map((h) => alias[h] || h);
+    if (!cols.includes("title") || !cols.includes("date")) throw new Error('CSV must include "title" and "date" columns.');
+    let added = 0, skipped = 0;
+    for (const r of rows.slice(1)) {
+      const obj = {};
+      cols.forEach((c, i) => { obj[c] = r[i] ?? ""; });
+      obj.date = normaliseDate(obj.date);
+      const d = normalise(obj);
+      if (isValid(d)) { state.deadlines.push(d); added++; } else skipped++;
+    }
+    save(); render();
+    toast(`Imported ${added} deadline(s)` + (skipped ? `, skipped ${skipped} invalid row(s)` : ""));
+  }
+  function exportCSV() {
+    const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [CSV_FIELDS.join(",")].concat(state.deadlines.map((d) => CSV_FIELDS.map((f) => q(d[f])).join(",")));
+    download("deadlines.csv", lines.join("\n"), "text/csv");
+  }
+  function exportICS() {
+    const esc2 = (s) => String(s || "").replace(/\\/g, "\\\\").replace(/[,;]/g, (m) => "\\" + m).replace(/\n/g, "\\n");
+    const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Deadline Calendar//EN", "CALSCALE:GREGORIAN"];
+    for (const d of filtered()) {
+      const start = d.date.replace(/-/g, "");
+      const end = toKey(new Date(fromKey(d.date).getTime() + 86400000)).replace(/-/g, "");
+      const desc = [d.time && `Time: ${d.time} ${d.timezone}`, d.type, d.country, d.notes, d.link].filter(Boolean).join("\n");
+      lines.push("BEGIN:VEVENT", `UID:${d.id}@deadline-calendar`, `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${start}`, `DTEND;VALUE=DATE:${end}`,
+        `SUMMARY:${esc2((d.institution ? d.institution + " — " : "") + d.title)}`,
+        `DESCRIPTION:${esc2(desc)}`,
+        "BEGIN:VALARM", "TRIGGER:-P7D", "ACTION:DISPLAY", "DESCRIPTION:Deadline in 7 days", "END:VALARM",
+        "END:VEVENT");
+    }
+    lines.push("END:VCALENDAR");
+    download("deadlines.ics", lines.join("\r\n"), "text/calendar");
+  }
+  function download(name, content, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // ---------- Utils ----------
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function safeUrl(u) { return /^https?:\/\//i.test(u || ""); }
+  let toastTimer;
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), 3000);
+  }
+
+  // ---------- Events ----------
+  function bind() {
+    $("prevBtn").onclick = () => { state.cursor = new Date(state.cursor.getFullYear(), state.cursor.getMonth() - 1, 1); render(); };
+    $("nextBtn").onclick = () => { state.cursor = new Date(state.cursor.getFullYear(), state.cursor.getMonth() + 1, 1); render(); };
+    $("todayBtn").onclick = () => { state.cursor = startOfMonth(new Date()); render(); };
+    $("addBtn").onclick = () => openEdit();
+
+    document.querySelectorAll(".seg button").forEach((b) => b.onclick = () => {
+      document.querySelectorAll(".seg button").forEach((x) => x.classList.toggle("active", x === b));
+      state.view = b.dataset.view; render();
+    });
+
+    $("searchInput").oninput = (e) => { state.filters.search = e.target.value; render(); };
+    $("countryFilter").onchange = (e) => { state.filters.country = e.target.value; render(); };
+    $("typeFilter").onchange = (e) => { state.filters.type = e.target.value; render(); };
+    $("hideDone").onchange = (e) => { state.filters.hideDone = e.target.checked; render(); };
+
+    // Calendar clicks: chip → edit, cell → day view
+    $("calendarView").onclick = (e) => {
+      const c = e.target.closest(".chip");
+      if (c) return openEdit(c.dataset.id);
+      const cell = e.target.closest(".cell");
+      if (cell) openDay(cell.dataset.day);
+    };
+    $("agendaView").onclick = (e) => { const it = e.target.closest("[data-id]"); if (it) openEdit(it.dataset.id); };
+    $("upcomingList").onclick = (e) => {
+      const it = e.target.closest("[data-id]"); if (!it) return;
+      const d = state.deadlines.find((x) => x.id === it.dataset.id);
+      if (d) { state.cursor = startOfMonth(fromKey(d.date)); render(); openDay(d.date); }
+    };
+    $("dayList").onclick = (e) => {
+      if (e.target.closest("a")) return;
+      const it = e.target.closest("[data-id]"); if (!it) return;
+      $("dayDialog").close(); openEdit(it.dataset.id);
+    };
+    $("dayAddBtn").onclick = () => { $("dayDialog").close(); openEdit(null, state.dayDialogDate); };
+    $("dayCloseBtn").onclick = () => $("dayDialog").close();
+
+    // Edit form
+    $("editForm").onsubmit = (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const data = Object.fromEntries(new FormData(f).entries());
+      data.done = f.elements.done.checked;
+      const d = normalise({ ...data, id: state.editingId || undefined });
+      if (!isValid(d)) return toast("Please enter a title and a valid date.");
+      const idx = state.deadlines.findIndex((x) => x.id === d.id);
+      if (idx >= 0) state.deadlines[idx] = d; else state.deadlines.push(d);
+      save(); $("editDialog").close(); render(); toast("Saved");
+    };
+    $("cancelBtn").onclick = () => $("editDialog").close();
+    $("deleteBtn").onclick = () => {
+      if (!state.editingId) return;
+      state.deadlines = state.deadlines.filter((x) => x.id !== state.editingId);
+      save(); $("editDialog").close(); render(); toast("Deleted");
+    };
+
+    // Data menu
+    $("menuBtn").onclick = (e) => { e.stopPropagation(); $("menuList").hidden = !$("menuList").hidden; };
+    document.addEventListener("click", () => ($("menuList").hidden = true));
+    $("importCsvBtn").onclick = () => $("csvInput").click();
+    $("csvInput").onchange = async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      try { importCSV(await file.text()); } catch (err) { toast(err.message); }
+      e.target.value = "";
+    };
+    $("exportCsvBtn").onclick = exportCSV;
+    $("exportIcsBtn").onclick = exportICS;
+    $("resetBtn").onclick = async () => {
+      // Two-click confirmation instead of a blocking confirm() dialog
+      const b = $("resetBtn");
+      if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.textContent = "Click again to confirm reset"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "Reset to default data"; }, 4000); return; }
+      b.dataset.armed = ""; b.textContent = "Reset to default data";
+      try { state.deadlines = await loadDefaults(); save(); render(); toast("Reset to default data"); }
+      catch (err) { toast(err.message); }
+    };
+
+    // Keyboard: ← → to change month, "n" for new
+    document.addEventListener("keydown", (e) => {
+      if (document.querySelector("dialog[open]") || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+      if (e.key === "ArrowLeft") $("prevBtn").click();
+      if (e.key === "ArrowRight") $("nextBtn").click();
+      if (e.key.toLowerCase() === "n") openEdit();
+      if (e.key.toLowerCase() === "t") $("todayBtn").click();
+    });
+  }
+
+  // ---------- Init ----------
+  bind();
+  load().then(render);
+})();
+
+</script>
+</body>
+</html>

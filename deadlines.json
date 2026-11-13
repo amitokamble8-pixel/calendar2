@@ -1,0 +1,66 @@
+[
+  {
+    "title": "Early Decision II application",
+    "institution": "Sample University A",
+    "country": "USA",
+    "type": "Early Decision",
+    "date": "2027-01-01",
+    "time": "23:59",
+    "timezone": "ET",
+    "priority": "high",
+    "link": "",
+    "notes": "SAMPLE ENTRY — replace with real data (Data ▸ Import CSV, or edit deadlines.json)."
+  },
+  {
+    "title": "Regular Decision application",
+    "institution": "Sample College B",
+    "country": "USA",
+    "type": "Regular Decision",
+    "date": "2027-01-15",
+    "time": "23:59",
+    "timezone": "ET",
+    "priority": "normal",
+    "link": "",
+    "notes": "SAMPLE ENTRY"
+  },
+  {
+    "title": "CSS Profile / financial aid forms",
+    "institution": "Sample College B",
+    "country": "USA",
+    "type": "Financial aid",
+    "date": "2027-02-01",
+    "priority": "normal",
+    "notes": "SAMPLE ENTRY"
+  },
+  {
+    "title": "UCAS application",
+    "institution": "Sample UK University",
+    "country": "UK",
+    "type": "Application",
+    "date": "2027-01-14",
+    "time": "18:00",
+    "timezone": "GMT",
+    "priority": "high",
+    "notes": "SAMPLE ENTRY — check the official UCAS date for the cycle."
+  },
+  {
+    "title": "Entrance scholarship application",
+    "institution": "Sample University C",
+    "country": "Canada",
+    "type": "Scholarship",
+    "date": "2026-12-01",
+    "priority": "normal",
+    "notes": "SAMPLE ENTRY"
+  },
+  {
+    "title": "Admissions interview",
+    "institution": "Sample University D",
+    "country": "Netherlands",
+    "type": "Interview",
+    "date": "2026-11-26",
+    "time": "10:00",
+    "timezone": "CET",
+    "priority": "normal",
+    "notes": "SAMPLE ENTRY"
+  }
+]
